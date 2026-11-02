@@ -1,0 +1,51 @@
+# Put this file in your fork at .github/workflows/build-phrust.yml
+# and put the whole kit folder in your fork as ./phrust-kit/
+# Then: GitHub -> Actions -> "Build PHRust jar" -> Run workflow. Download the jar from the run's Artifacts.
+name: Build PHRust jar
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - master
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Setup JDK 17
+        uses: actions/setup-java@v5
+        with:
+          java-version: 17
+          distribution: temurin
+          cache: gradle
+
+      - name: Set Git identity
+        run: |
+          git config --global user.email "actions@github.com"
+          git config --global user.name "GitHub Actions"
+          git config --global init.defaultBranch master
+
+      - name: Setup build environment (applies PandaSpigot patches)
+        run: ./panda setup
+
+      - name: Verify PHRust hook anchors
+        run: python3 phrust-kit/apply_phrust.py . --check
+
+      - name: Apply PHRust kit
+        run: python3 phrust-kit/apply_phrust.py .
+
+      - name: Build
+        run: ./panda jar
+
+      - name: Name the jar
+        run: cp -v ./paperclip.jar "./phrust-$GITHUB_RUN_NUMBER.jar"
+
+      - name: Upload jar
+        uses: actions/upload-artifact@v7
+        with:
+          name: PHRust-server-jar
+          path: phrust-${{ github.run_number }}.jar
+          if-no-files-found: error
